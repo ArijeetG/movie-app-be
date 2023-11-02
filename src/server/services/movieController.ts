@@ -3,10 +3,15 @@ import { connectToDb } from "../providers/db";
 import { MongoClient } from "mongodb";
 import UploadService from "../providers/uploadService";
 
+interface IMovieInput {
+  name: string;
+  dataFile: string;
+  thumbnailFile: string;
+}
+
 class MovieController extends UploadService {
-  public async addMovies(req: Request, res: Response) {
+  public async addMovieFile(req: Request, res: Response) {
     try {
-      const { name } = req.body;
       const client: MongoClient | undefined = await connectToDb();
       if (!client) throw new Error("Failed to connect to db");
 
@@ -20,11 +25,27 @@ class MovieController extends UploadService {
         });
       }
 
-      await this.uploadFile(file);
-      await client.db("movie-app").collection("movies").insertOne({
-        name,
+      const result = await this.uploadFile(file);
+      const fileUrl = await this.generateSignedUrl(result.Key, 24 * 3600);
+      return res.status(200).send({ message: "SUCCESS", data: fileUrl });
+    } catch (error) {
+      console.log(error);
+      return res.sendStatus(500);
+    }
+  }
+
+  public async addMovie(req: Request, res: Response) {
+    try {
+      const client: MongoClient | undefined = await connectToDb();
+      if (!client) throw new Error("Failed to connect to db");
+
+      const payload: IMovieInput = req.body;
+
+      await client.db("movie-app").collection("movies").insertOne(payload);
+
+      return res.status(200).send({
+        message: "SUCCESS",
       });
-      return res.status(200).send("SUCCESS");
     } catch (error) {
       console.log(error);
       return res.sendStatus(500);

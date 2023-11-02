@@ -9,14 +9,41 @@ class UploadService {
     this.s3 = new aws.S3({ apiVersion: "2006-06-01" });
   }
 
-  public async uploadFile(file: Express.Multer.File) {
+  public async uploadFile(
+    file: Express.Multer.File
+  ): Promise<aws.S3.ManagedUpload.SendData> {
     const params: aws.S3.PutObjectRequest = {
       Key: file.originalname,
       Body: file.buffer,
       ContentType: file.mimetype,
       Bucket: String(process.env.BUCKET),
     };
-    await this.s3.upload(params).promise();
+    const result: aws.S3.ManagedUpload.SendData = await this.s3
+      .upload(params)
+      .promise();
+
+    return result;
+  }
+
+  public async generateSignedUrl(
+    objectKey: string,
+    expirationInSeconds: number
+  ): Promise<string> {
+    const params = {
+      Bucket: String(process.env.BUCKET),
+      Key: objectKey,
+      Expires: expirationInSeconds,
+    };
+
+    return new Promise<string>((resolve, reject) => {
+      this.s3.getSignedUrl("getObject", params, (err, data) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(data);
+        }
+      });
+    });
   }
 }
 
